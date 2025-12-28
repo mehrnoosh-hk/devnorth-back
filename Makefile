@@ -1,3 +1,6 @@
+include .env
+export
+
 .PHONY: help build run test clean sqlc migrate-up migrate-down migrate-create
 
 help:
@@ -29,7 +32,7 @@ clean:
 
 sqlc:
 	@echo "Generating SQLC code..."
-	sqlc generate
+	sqlc generate -f sqlc.yaml
 
 migrate-up:
 	@echo "Running migrations..."
