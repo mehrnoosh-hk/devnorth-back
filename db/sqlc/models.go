@@ -7,7 +7,8 @@ package sqlc
 import (
 	"database/sql/driver"
 	"fmt"
-	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type UserRole string
@@ -53,10 +54,10 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 }
 
 type User struct {
-	ID             int32     `json:"id"`
-	Email          string    `json:"email"`
-	HashedPassword string    `json:"hashed_password"`
-	Role           UserRole  `json:"role"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             int32            `json:"id"`
+	Email          string           `json:"email"`
+	HashedPassword string           `json:"-"`
+	Role           UserRole         `json:"role"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
 }
