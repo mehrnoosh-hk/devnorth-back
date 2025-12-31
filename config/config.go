@@ -1,7 +1,7 @@
 package config
 
 import (
-	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 )
@@ -24,7 +24,7 @@ type DatabaseConfig struct {
 
 	// Connection pool settings
 	MaxOpenConns    int // Maximum number of open connections to the database
-	MaxIdleConns    int // Maximum number of idle connections in the pool
+	MinOpenConns    int // Minimum number of open connections to the database
 	ConnMaxLifetime int // Maximum lifetime of a connection in minutes
 	ConnMaxIdleTime int // Maximum time a connection can be idle in minutes
 
@@ -62,7 +62,7 @@ func Load() (*Config, error) {
 
 			// Connection pool settings
 			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
-			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 5),
+			MinOpenConns:    getEnvAsInt("DB_MIN_OPEN_CONNS", 5),
 			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 5),
 			ConnMaxIdleTime: getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 5),
 
@@ -79,14 +79,16 @@ func Load() (*Config, error) {
 
 	// Build DB_URL if not provided
 	if cfg.Database.URL == "" {
-		cfg.Database.URL = fmt.Sprintf(
-			"postgresql://%s:%s@%s/%s?sslmode=%s",
-			cfg.Database.User,
-			cfg.Database.Password,
-			cfg.Database.Host,
-			cfg.Database.Name,
-			cfg.Database.SSLMode,
-		)
+		u := &url.URL{
+			Scheme: "postgres",
+			User:   url.UserPassword(cfg.Database.User, cfg.Database.Password),
+			Host:   cfg.Database.Host,
+			Path:   cfg.Database.Name,
+			RawQuery: url.Values{
+				"sslmode": {cfg.Database.SSLMode},
+			}.Encode(),
+		}
+		cfg.Database.URL = u.String()
 	}
 
 	return cfg, nil
