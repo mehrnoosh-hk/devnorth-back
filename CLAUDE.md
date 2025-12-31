@@ -21,13 +21,16 @@ This is the backend for **DevNorth**, a proof-of-concept project using **Clean A
 devnorth-back/
 ├── cmd/api/                    # Application entry point (main.go)
 ├── internal/                   # Private application code
-│   ├── domain/                 # Entities & domain logic (no dependencies)
-│   ├── repository/             # Data access (SQLC generated code)
+│   ├── app/                    # App initialization (wires DB, logger, config)
+│   ├── database/               # Database connection pool setup
+│   ├── domain/                 # Entities, interfaces & business logic (no external dependencies)
+│   ├── repository/             # Repository implementations (wraps SQLC, converts models)
 │   ├── usecase/                # Business logic (orchestrates domain + repo)
 │   └── delivery/http/          # HTTP handlers, routes, middleware
 ├── db/
 │   ├── migrations/             # SQL migration files (.sql)
-│   └── queries/                # SQL query files (.sql for SQLC)
+│   ├── queries/                # SQL query files (.sql for SQLC)
+│   └── sqlc/                   # SQLC-generated code (models, queries)
 ├── config/                     # Configuration structs & loaders
 ├── pkg/                        # Public reusable packages (if needed)
 ├── .env.example                # Environment variables template
@@ -35,9 +38,10 @@ devnorth-back/
 └── sqlc.yaml                   # SQLC configuration
 ```
 
-**Dependency Flow**: `Delivery → UseCase → Repository → Domain`
+**Dependency Flow**: `Delivery → UseCase → Repository → Domain ← (interface implemented by) Repository`
 - Inner layers (domain) never import outer layers
-- Repository defines interfaces; SQLC implements them
+- Domain defines repository interfaces; Repository layer implements them
+- Repository converts SQLC models to domain models
 
 ## Development Workflow
 
@@ -61,13 +65,13 @@ Follow this process for any non-trivial feature:
 3. **Add Queries** (if needed)
    ```bash
    # Create db/queries/users.sql with SQL queries
-   make sqlc  # Generates Go code in internal/repository/
+   make sqlc  # Generates Go code in db/sqlc
    ```
 
 4. **Implement in Layers** (bottom-up)
-   - **Domain**: Define entities (`internal/domain/user.go`)
-   - **Repository**: Use SQLC-generated code, add interfaces if needed
-   - **UseCase**: Implement business logic (`internal/usecase/user_usecase.go`)
+   - **Domain**: Define entities (`internal/domain/user.go`) and repository interface (`internal/domain/user_repository.go`)
+   - **Repository**: Implement domain interface, wrap SQLC, convert models (`internal/repository/user_repository.go`)
+   - **UseCase**: Implement business logic using domain interfaces (`internal/usecase/user_usecase.go`)
    - **Delivery**: Add HTTP handlers (`internal/delivery/http/user_handler.go`)
 
 5. **Test & Verify**
@@ -150,8 +154,54 @@ Be direct and objective - honest feedback improves outcomes.
    -- name: CreateUser :one
    INSERT INTO users (name, email) VALUES ($1, $2) RETURNING *;
    ```
-3. **Generate code**: Run `make sqlc` to generate type-safe Go code
-4. **Use in repository layer**: SQLC outputs to `internal/repository/`
+3. **Generate code**: Run `make sqlc` to generate type-safe Go code in `db/sqlc/`
+4. **Wrap in repository layer**: Create repository implementations in `internal/repository/` that:
+   - Implement domain repository interfaces
+   - Wrap SQLC's generated `Queries` type
+   - Convert between SQLC models and domain models
+
+## Repository Pattern
+
+**Architecture**: Domain defines interfaces, Repository implements them
+
+1. **Define repository interface in domain layer**:
+   ```go
+   // internal/domain/user_repository.go
+   type UserRepository interface {
+       Create(ctx context.Context, email, hashedPassword string, role UserRole) (*User, error)
+       GetByEmail(ctx context.Context, email string) (*User, error)
+   }
+   ```
+
+2. **Implement in repository layer**:
+   ```go
+   // internal/repository/user_repository.go
+   type userRepository struct {
+       queries *sqlc.Queries
+   }
+
+   func NewUserRepository(db *sql.DB) domain.UserRepository {
+       return &userRepository{queries: sqlc.New(db)}
+   }
+
+   func (r *userRepository) Create(...) (*domain.User, error) {
+       sqlcUser, err := r.queries.CreateUser(ctx, params)
+       return toDomainUser(sqlcUser), err // Convert SQLC → Domain
+   }
+   ```
+
+3. **Use in upper layers**:
+   ```go
+   // UseCase or handler
+   userRepo := repository.NewUserRepository(app.DB)
+   user, err := userRepo.GetByEmail(ctx, "user@example.com")
+   ```
+
+**Key Points**:
+- Domain models (`domain.User`) are separate from SQLC models (`sqlc.User`)
+- Repository converts between them using helper functions (e.g., `toDomainUser()`)
+- Domain layer has zero database dependencies
+- Easy to mock for testing (just implement the interface)
 
 ## Migration Guidelines
 
@@ -173,7 +223,7 @@ Be direct and objective - honest feedback improves outcomes.
 - Config files (`.env.example`, `Makefile`)
 
 **Don't modify**:
-- SQLC-generated code in `internal/repository/` (regenerate instead)
+- SQLC-generated code in `db/sqlc/` (regenerate with `make sqlc` instead)
 - `.gitignore`, `go.mod`, `go.sum` (unless explicitly requested)
 
 **Ask before modifying**:
