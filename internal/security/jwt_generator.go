@@ -3,6 +3,7 @@ package security
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -14,6 +15,7 @@ type jwtGenerator struct {
 	keys          map[string]string
 	currentKey    string
 	tokenDuration time.Duration
+	logger        *slog.Logger
 }
 
 // Claims represents the JWT token claims
@@ -27,27 +29,32 @@ type Claims struct {
 // NewJWTGenerator creates a new JWT-based token generator
 // currentKey: Which key to use for new tokens
 // durationMinutes: token expiration time in minutes
-func NewJWTGenerator(kid string, Keys map[string]string, durationMinutes int) (domain.TokenGenerator, error) {
+func NewJWTGenerator(kid string, Keys map[string]string, durationMinutes int, l *slog.Logger) (domain.TokenGenerator, error) {
 	// Check all the keys value in Keys map is acceptable
 	for k := range Keys {
 		if len(Keys[k]) < 32 {
-			return nil, fmt.Errorf("key %s is too short", k)
+			return nil, ErrKeyIsTooShort
 		}
 	}
 	if durationMinutes <= 0 {
-		return nil, fmt.Errorf("durationMinutes must be positive")
+		return nil, ErrDurationMustBePositive
+	}
+	if l == nil {
+		return nil, ErrLoggerCanNotBeNil
 	}
 	return &jwtGenerator{
 		keys:          Keys,
 		currentKey:    kid,
 		tokenDuration: time.Duration(durationMinutes) * time.Minute,
+		logger:        l,
 	}, nil
 }
 
 // Generate creates a JWT token for the given user
 func (g *jwtGenerator) Generate(ctx context.Context, user *domain.User) (string, error) {
 	if user == nil {
-		return "", fmt.Errorf("user cannot be nil")
+		g.logger.Error("user can not be nil")
+		return "", ErrUserCanNotBeNil
 	}
 	now := time.Now()
 	expiresAt := now.Add(g.tokenDuration)
@@ -71,7 +78,8 @@ func (g *jwtGenerator) Generate(ctx context.Context, user *domain.User) (string,
 	// Sign token with secret key
 	signedToken, err := token.SignedString([]byte(g.keys[g.currentKey]))
 	if err != nil {
-		return "", fmt.Errorf("failed to sign token: %w", err)
+		g.logger.Error("failed to sign token", "error", err)
+		return "", fmt.Errorf("%w: %w", ErrFailedToSignToken, err)
 	}
 
 	return signedToken, nil
@@ -83,22 +91,26 @@ func (g *jwtGenerator) Validate(ctx context.Context, tokenString string) (*domai
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (any, error) {
 		// Verify signing method
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			g.logger.Error("unexpected signing method", "method", token.Header["alg"])
+			return nil, ErrUnexpectedSigningMethod
 		}
 		// Verify kid
 		if token.Header["kid"] != g.currentKey {
-			return nil, fmt.Errorf("unexpected key id: %v", token.Header["kid"])
+			g.logger.Error("unexpected key ID", "kid", token.Header["kid"])
+			return nil, ErrUnexpectedKeyID
 		}
 		return []byte(g.keys[g.currentKey]), nil
 	})
 
 	if err != nil {
-		return nil, domain.ErrInvalidToken
+		g.logger.Error("invalid token", "error", err)
+		return nil, fmt.Errorf("%w: %w", domain.ErrInvalidToken, err)
 	}
 
 	// Extract claims
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
+		g.logger.Error("invalid token claims")
 		return nil, domain.ErrInvalidToken
 	}
 

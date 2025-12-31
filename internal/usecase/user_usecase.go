@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -17,6 +18,7 @@ type userUseCase struct {
 	userRepo       domain.UserRepository
 	passwordHasher domain.PasswordHasher
 	tokenGenerator domain.TokenGenerator
+	logger         *slog.Logger
 }
 
 // NewUserUseCase creates a new user use case instance
@@ -25,21 +27,26 @@ func NewUserUseCase(
 	userRepo domain.UserRepository,
 	passwordHasher domain.PasswordHasher,
 	tokenGenerator domain.TokenGenerator,
+	logger *slog.Logger,
 ) (domain.UserUseCase, error) {
 	// Nil-check the injected dependencies
 	if userRepo == nil {
-		return nil, fmt.Errorf("user repository cannot be nil")
+		return nil, ErrUserRepositoryNil
 	}
 	if passwordHasher == nil {
-		return nil, fmt.Errorf("password hasher cannot be nil")
+		return nil, ErrPasswordHasherNil
 	}
 	if tokenGenerator == nil {
-		return nil, fmt.Errorf("token generator cannot be nil")
+		return nil, ErrTokenGeneratorNil
+	}
+	if logger == nil {
+		return nil, ErrLoggerNil
 	}
 	return &userUseCase{
 		userRepo:       userRepo,
 		passwordHasher: passwordHasher,
 		tokenGenerator: tokenGenerator,
+		logger:         logger,
 	}, nil
 }
 
@@ -56,33 +63,39 @@ func (uc *userUseCase) Register(ctx context.Context, email, password string) (*d
 
 	// Step 1: Validate email (basic validation for POC)
 	if err := uc.validateEmail(email); err != nil {
+		uc.logger.Error("failed to validate email", "error", err)
 		return nil, err
 	}
 
 	// Step 2: Validate password (basic validation for POC)
 	if err := uc.validatePassword(password); err != nil {
+		uc.logger.Error("failed to validate password", "error", err)
 		return nil, err
 	}
 
 	// Step 3: Check if email already exists
 	existingUser, err := uc.userRepo.GetByEmail(ctx, email)
 	if err != nil && !errors.Is(err, domain.ErrUserNotFound) {
-		return nil, fmt.Errorf("failed to check existing user: %w", err)
+		uc.logger.Error("failed to check existing user", "error", err)
+		return nil, fmt.Errorf("%w: %w", ErrCheckExistingUser, err)
 	}
 	if existingUser != nil {
+		uc.logger.Error("email already exists", "email", email)
 		return nil, domain.ErrEmailAlreadyExists
 	}
 
 	// Step 4: Hash password
 	hashedPassword, err := uc.passwordHasher.Hash(password)
 	if err != nil {
-		return nil, fmt.Errorf("failed to hash password: %w", err)
+		uc.logger.Error("failed to hash password", "error", err)
+		return nil, fmt.Errorf("%w: %w", ErrHashPassword, err)
 	}
 
 	// Step 5: Create user with default role (USER)
 	user, err := uc.userRepo.Create(ctx, email, hashedPassword, domain.UserRoleUSER)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create user: %w", err)
+		uc.logger.Error("failed to create user", "error", err)
+		return nil, fmt.Errorf("%w: %w", ErrCreateUser, err)
 	}
 
 	return user, nil
@@ -147,7 +160,7 @@ func (uc *userUseCase) Login(ctx context.Context, email, password string) (strin
 		if errors.Is(err, domain.ErrUserNotFound) {
 			return "", nil, domain.ErrInvalidCredentials
 		}
-		return "", nil, fmt.Errorf("failed to get user: %w", err)
+		return "", nil, fmt.Errorf("%w: %w", ErrGetUser, err)
 	}
 
 	// Step 3: Compare password hash
@@ -162,7 +175,7 @@ func (uc *userUseCase) Login(ctx context.Context, email, password string) (strin
 	defer cancel()
 	token, err := uc.tokenGenerator.Generate(ctxWithTimeout, user)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to generate token: %w", err)
+		return "", nil, fmt.Errorf("%w: %w", ErrGenerateToken, err)
 	}
 
 	// Step 5: Return token and user (password is already hashed, but good practice to not return it)

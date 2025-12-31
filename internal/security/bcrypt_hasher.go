@@ -21,8 +21,8 @@ type bcryptHasher struct {
 // Default cost is bcrypt.DefaultCost (10)
 func NewBcryptHasher(cost int) (*bcryptHasher, error) {
 	if cost < bcrypt.MinCost || cost > bcrypt.MaxCost {
-		return nil, fmt.Errorf("invalid bcrypt cost %d, must be between %d and %d", 
-			cost, bcrypt.MinCost, bcrypt.MaxCost)
+		return nil, fmt.Errorf("%w: %d (must be between %d and %d)",
+			ErrInvalidBcryptCost, cost, bcrypt.MinCost, bcrypt.MaxCost)
 	}
 	return &bcryptHasher{cost: cost}, nil
 }
@@ -36,7 +36,7 @@ func (h *bcryptHasher) Hash(password string) (string, error) {
 	}
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), h.cost)
 	if err != nil {
-		return "", fmt.Errorf("failed to hash password: %w", err)
+		return "", fmt.Errorf("%w: %w", ErrHashPassword, err)
 	}
 	return string(hashedBytes), nil
 }
@@ -52,7 +52,7 @@ func (h *bcryptHasher) Compare(hashedPassword, plainPassword string) error {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			return domain.ErrInvalidCredentials
 		}
-		return fmt.Errorf("failed to compare passwords: %w", err)
+		return fmt.Errorf("%w: %w", ErrComparePassword, err)
 	}
 	return nil
 }
