@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"strconv"
@@ -8,8 +10,11 @@ import (
 
 // ServerConfig holds server-related configuration
 type ServerConfig struct {
-	Host string
-	Port string
+	Host           string
+	Port           string
+	ReadTimeout    int // Read timeout in seconds
+	WriteTimeout   int // Write timeout in seconds
+	HandlerTimeout int // Handler/request processing timeout in seconds
 }
 
 // DatabaseConfig holds database-related configuration
@@ -37,19 +42,35 @@ type DatabaseConfig struct {
 	MigrationsTable string // Table name for tracking migrations
 }
 
+// JWTConfig holds JWT authentication configuration
+type JWTConfig struct {
+	SecretKey     string // Secret key for signing JWT tokens
+	TokenDuration int    // Token expiration duration in minutes
+}
+
 // Config holds all application configuration
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
+	JWT      JWTConfig
 	AppEnv   string
 }
+
+// TODO: Create config validation
 
 // Load reads configuration from environment variables
 func Load() (*Config, error) {
 	cfg := &Config{
 		Server: ServerConfig{
-			Host: getEnv("SERVER_HOST", "localhost"),
-			Port: getEnv("SERVER_PORT", "8080"),
+			Host:           getEnv("SERVER_HOST", "localhost"),
+			Port:           getEnv("SERVER_PORT", "8080"),
+			ReadTimeout:    getEnvAsInt("SERVER_READ_TIMEOUT", 15),
+			WriteTimeout:   getEnvAsInt("SERVER_WRITE_TIMEOUT", 15),
+			HandlerTimeout: getEnvAsInt("SERVER_HANDLER_TIMEOUT", 10),
+		},
+		JWT: JWTConfig{
+			SecretKey:     getEnv("JWT_SECRET", ""),
+			TokenDuration: getEnvAsInt("JWT_TOKEN_DURATION", 15), // 15 minutes default for POC testing
 		},
 		Database: DatabaseConfig{
 			// Connection details
@@ -105,9 +126,13 @@ func getEnv(key, defaultValue string) string {
 // getEnvAsInt reads an environment variable as integer or returns a default value
 func getEnvAsInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
+		intValue, err := strconv.Atoi(value)
+		if err != nil {
+			fmt.Printf("invalid integer value for %s: %w\n", key, err)
+			return defaultValue
 		}
+		return intValue
+		log.Printf("Warning: Invalid value for %s, using default %d", key, defaultValue)
 	}
 	return defaultValue
 }
