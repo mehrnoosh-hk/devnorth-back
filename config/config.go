@@ -106,9 +106,9 @@ func Load() (*Config, error) {
 			MigrationsTable: getEnv("DB_MIGRATIONS_TABLE", "schema_migrations"),
 		},
 		App: AppConfig{
-		Env:             getEnv("APP_ENV", "development"),
-		ShutdownTimeout: getEnvAsInt("APP_SHUTDOWN_TIMEOUT", 30),
-	},
+			Env:             getEnv("APP_ENV", "development"),
+			ShutdownTimeout: getEnvAsInt("APP_SHUTDOWN_TIMEOUT", 30),
+		},
 	}
 
 	// Build DB_URL if not provided
@@ -149,8 +149,6 @@ func getEnvAsInt(key string, defaultValue int) int {
 	log.Printf("Warning: The value for %s is empty, using default %d", key, defaultValue)
 	return defaultValue
 }
-
-
 
 func LoadConfig() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
