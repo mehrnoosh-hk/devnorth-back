@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -153,18 +154,21 @@ func getEnvAsInt(key string, defaultValue int) int {
 
 func LoadConfig() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
-		log.Printf("Note: .env file not loaded: %v. env file is required.", err)
+		log.Printf("Error loading .env file: %v", err)
+		return nil, err
 	}
 
 	// Load configuration
 	cfg, err := Load()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		log.Printf("Failed to load configuration: %v", err)
+		return nil, err
 	}
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
-		log.Fatalf("Invalid configuration: %v", err)
+		log.Printf("Invalid configuration: %v", err)
+		return nil, err
 	}
 	return cfg, nil
 }
