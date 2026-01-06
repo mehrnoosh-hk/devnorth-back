@@ -25,7 +25,7 @@ type App struct {
 // NewApp initializes and returns a new App instance with all dependencies
 func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	// Initialize logger
-	logger := initLogger(cfg.AppEnv)
+	logger := initLogger(cfg.AppEnvironment())
 
 	// Initialize database connection
 	db, err := initDatabase(ctx, cfg.Database, logger)

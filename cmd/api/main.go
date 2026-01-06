@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/mehrnoosh-hk/devnorth-back/config"
 	"github.com/mehrnoosh-hk/devnorth-back/internal/app"
