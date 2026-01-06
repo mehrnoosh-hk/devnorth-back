@@ -3,6 +3,7 @@ package response
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -16,21 +17,33 @@ type Writer struct {
 }
 
 // NewWriter creates a new response writer with the given logger
-func NewWriter(logger *slog.Logger) *Writer {
+func NewWriter(logger *slog.Logger) (*Writer, error) {
+	if logger == nil {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidDependencies, "logger can not be nil")
+	}
 	return &Writer{
 		logger: logger,
-	}
+	}, nil
 }
 
 // JSON sends a JSON response with the given status code
-func (rw *Writer) JSON(w http.ResponseWriter, statusCode int, payload any) {
+// Only accepts types that implement JSONSerializable to ensure compile-time safety
+func (rw *Writer) JSON(w http.ResponseWriter, statusCode int, payload dto.JSONSerializable) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
+
 	if payload != nil {
-		if err := json.NewEncoder(w).Encode(payload); err != nil {
-			rw.logger.Error("Failed to encode JSON response", "error", err)
+		// 1. Marshal FIRST (in memory, no network communication yet)
+		data, err := json.Marshal(payload)
+		if err != nil {
+			// 2. Encoding failed? Send 500 BEFORE any body
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"error":"internal_server_error","message":"Failed to encode response"}`))
+			return
 		}
+
+		// 3. Only send status AFTER we know encoding succeeded
+		w.WriteHeader(statusCode)
+		w.Write(data) // Now write the valid data
 	}
 }
 
@@ -92,11 +105,11 @@ func (rw *Writer) Error(w http.ResponseWriter, err error) {
 }
 
 // Success sends a successful response
-func (rw *Writer) Success(w http.ResponseWriter, payload any) {
+func (rw *Writer) Success(w http.ResponseWriter, payload dto.JSONSerializable) {
 	rw.JSON(w, http.StatusOK, payload)
 }
 
 // Created sends a created response (201)
-func (rw *Writer) Created(w http.ResponseWriter, payload any) {
+func (rw *Writer) Created(w http.ResponseWriter, payload dto.JSONSerializable) {
 	rw.JSON(w, http.StatusCreated, payload)
 }

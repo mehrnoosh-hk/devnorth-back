@@ -82,11 +82,14 @@ func initUseCases(
 }
 
 // initServer initializes the HTTP server
-func initServer(cfg config.ServerConfig, userUseCase domain.UserUseCase, logger *slog.Logger) *httpDelivery.Server {
+func initServer(cfg config.ServerConfig, userUseCase domain.UserUseCase, logger *slog.Logger) (*httpDelivery.Server, error) {
 	// Setup HTTP router with timeout from config
 	handlerTimeout := time.Duration(cfg.HandlerTimeout) * time.Second
-	router := httpDelivery.NewRouter(userUseCase, logger, handlerTimeout)
+	router, err := httpDelivery.NewRouter(userUseCase, logger, handlerTimeout)
+	if err != nil {
+		return nil, err
+	}
 
 	// Create HTTP server
-	return httpDelivery.NewServer(cfg, router, logger)
+	return httpDelivery.NewServer(cfg, router, logger), nil
 }

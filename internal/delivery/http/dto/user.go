@@ -10,3 +10,6 @@ type UserDTO struct {
 	Role      string    `json:"role"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// Implement JSONSerializable
+func (UserDTO) isJSONSerializable() {}

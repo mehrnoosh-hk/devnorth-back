@@ -52,7 +52,11 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	// Initialize HTTP server
-	server := initServer(cfg.Server, userUseCase, logger)
+	server, err := initServer(cfg.Server, userUseCase, logger)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
 
 	return &App{
 		config:      cfg,

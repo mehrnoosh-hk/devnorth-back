@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -18,12 +19,22 @@ type AuthHandler struct {
 }
 
 // NewAuthHandler creates a new auth handler instance
-func NewAuthHandler(userUseCase domain.UserUseCase, logger *slog.Logger, responseWriter *response.Writer) *AuthHandler {
+func NewAuthHandler(userUseCase domain.UserUseCase, logger *slog.Logger, responseWriter *response.Writer) (*AuthHandler, error) {
+	// Check if dependencies are nil
+	if userUseCase == nil {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidDependencies, "userUseCase can not be nil")
+	}
+	if logger == nil {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidDependencies, "logger can not be nil")
+	}
+	if responseWriter == nil {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidDependencies, "responseWriter can not be nil")
+	}
 	return &AuthHandler{
 		userUseCase:    userUseCase,
 		logger:         logger,
 		responseWriter: responseWriter,
-	}
+	}, nil
 }
 
 // Register handles user registration requests with automatic login
