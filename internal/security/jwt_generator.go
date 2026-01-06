@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -16,6 +17,8 @@ type jwtGenerator struct {
 	currentKey    string
 	tokenDuration time.Duration
 	logger        *slog.Logger
+	method        jwt.SigningMethod
+	minKeyLength  int
 }
 
 // Claims represents the JWT token claims
@@ -31,11 +34,14 @@ type Claims struct {
 // durationMinutes: token expiration time in minutes
 func NewJWTGenerator(kid string, Keys map[string]string, durationMinutes int, l *slog.Logger) (domain.TokenGenerator, error) {
 	// Check all the keys value in Keys map is acceptable
+	// Trim all keys
 	for k := range Keys {
+		Keys[k] = strings.TrimSpace(Keys[k])
 		if len(Keys[k]) < 32 {
 			return nil, ErrKeyIsTooShort
 		}
 	}
+
 	if durationMinutes <= 0 {
 		return nil, ErrDurationMustBePositive
 	}
@@ -47,6 +53,8 @@ func NewJWTGenerator(kid string, Keys map[string]string, durationMinutes int, l 
 		currentKey:    kid,
 		tokenDuration: time.Duration(durationMinutes) * time.Minute,
 		logger:        l,
+		method:        jwt.SigningMethodHS256, // TODO: make it configurable
+		minKeyLength:  32, // TODO: make it configurable
 	}, nil
 }
 
@@ -72,7 +80,7 @@ func (g *jwtGenerator) Generate(ctx context.Context, user *domain.User) (string,
 	}
 
 	// Create token with claims
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token := jwt.NewWithClaims(g.method, claims)
 	token.Header["kid"] = g.currentKey
 
 	// Sign token with secret key

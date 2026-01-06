@@ -53,22 +53,21 @@ func (c *Config) validateServer() error {
 
 // validateJWT validates JWT configuration
 func (c *Config) validateJWT() error {
+
+	// If using HS256: 32 bytes minimum is correct
+	// If using HS512: Should be 64 bytes minimum
+	// If using RS256/ES256: This validation doesn't apply (public key format)
+	const MinKeyLength = 32
+
 	if len(c.JWT.Keys) == 0 {
 		return errors.New("at least one JWT key is required")
 	}
 
-	// Check if at least one key is non-empty
-	hasValidKey := false
 	for kid, key := range c.JWT.Keys {
-		if strings.TrimSpace(key) != "" {
-			hasValidKey = true
-		} else if key == "" {
-			return fmt.Errorf("JWT key '%s' is empty", kid)
+		trimmed := strings.TrimSpace(key)
+		if trimmed == "" || len(trimmed) < MinKeyLength {
+			return fmt.Errorf("JWT key '%s' must be at least %d characters long (got %d)", kid, MinKeyLength, len(trimmed))
 		}
-	}
-
-	if !hasValidKey {
-		return errors.New("at least one valid JWT key is required")
 	}
 
 	if c.JWT.TokenDuration <= 0 {
