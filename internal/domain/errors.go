@@ -22,4 +22,13 @@ var (
 
 	// ErrInvalidToken is returned when a JWT token is invalid or expired
 	ErrInvalidToken = errors.New("invalid or expired token")
+
+	// ErrCompetencyNotFound is returned when a competency cannot be found
+	ErrCompetencyNotFound = errors.New("competency not found")
+
+	// ErrCompetencyAlreadyExists is returned when attempting to create a competency with a name that already exists
+	ErrCompetencyAlreadyExists = errors.New("competency already exists")
+
+	// ErrInvalidCompetencyName is returned when the competency name is invalid or empty
+	ErrInvalidCompetencyName = errors.New("invalid competency name")
 )
