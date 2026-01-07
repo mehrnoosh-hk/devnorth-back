@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+// JSONSerializable is a marker interface for types that can be safely JSON-serialized
+// This prevents accidentally passing channels, functions, or other non-serializable types
+type JSONSerializable interface {
+	isJSONSerializable()
+}
+
 // ValidationError represents a validation error
 type ValidationError struct {
 	Field   string
@@ -34,3 +40,8 @@ type HealthResponse struct {
 	Status    string    `json:"status"`
 	Timestamp time.Time `json:"timestamp"`
 }
+
+// Implement JSONSerializable for all response types
+func (ValidationError) isJSONSerializable()  {}
+func (ErrorResponse) isJSONSerializable()    {}
+func (HealthResponse) isJSONSerializable()   {}

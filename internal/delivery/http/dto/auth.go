@@ -39,3 +39,8 @@ func (r *RegisterRequest) Validate() error {
 func (r *LoginRequest) Validate() error {
 	return validateAuthRequest(r.Email, r.Password)
 }
+
+// Implement JSONSerializable for all auth DTOs
+func (RegisterRequest) isJSONSerializable() {}
+func (LoginRequest) isJSONSerializable()    {}
+func (AuthResponse) isJSONSerializable()    {}

@@ -12,7 +12,7 @@ import (
 )
 
 // NewRouter creates and configures the HTTP router
-func NewRouter(userUseCase domain.UserUseCase, logger *slog.Logger, handlerTimeout time.Duration) *chi.Mux {
+func NewRouter(userUseCase domain.UserUseCase, logger *slog.Logger, handlerTimeout time.Duration) (*chi.Mux, error) {
 	r := chi.NewRouter()
 
 	// Global middleware
@@ -21,11 +21,20 @@ func NewRouter(userUseCase domain.UserUseCase, logger *slog.Logger, handlerTimeo
 	r.Use(middleware.CORS())
 
 	// Initialize response writer
-	responseWriter := response.NewWriter(logger)
+	responseWriter, err := response.NewWriter(logger)
+	if err != nil {
+		return nil, err
+	}
 
 	// Initialize handlers
-	authHandler := handler.NewAuthHandler(userUseCase, logger, responseWriter)
-	healthHandler := handler.NewHealthHandler(responseWriter)
+	authHandler, err := handler.NewAuthHandler(userUseCase, logger, responseWriter)
+	if err != nil {
+		return nil, err
+	}
+	healthHandler, err := handler.NewHealthHandler(responseWriter)
+	if err != nil {
+		return nil, err
+	}
 
 	// API routes
 	r.Route("/api/v1", func(r chi.Router) {
@@ -39,5 +48,5 @@ func NewRouter(userUseCase domain.UserUseCase, logger *slog.Logger, handlerTimeo
 		})
 	})
 
-	return r
+	return r, nil
 }

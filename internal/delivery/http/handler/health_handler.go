@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -14,10 +15,13 @@ type HealthHandler struct {
 }
 
 // NewHealthHandler creates a new health handler instance
-func NewHealthHandler(responseWriter *response.Writer) *HealthHandler {
+func NewHealthHandler(responseWriter *response.Writer) (*HealthHandler, error) {
+	if responseWriter == nil {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidDependencies, "responseWriter can not be nil")
+	}
 	return &HealthHandler{
 		responseWriter: responseWriter,
-	}
+	}, nil
 }
 
 // Check handles health check requests
