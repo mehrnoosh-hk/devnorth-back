@@ -14,12 +14,14 @@ import (
 
 // App holds the application state and dependencies
 type App struct {
-	config      *config.Config
-	Logger      *slog.Logger
-	db          *pgxpool.Pool
-	userRepo    domain.UserRepository
-	userUseCase domain.UserUseCase
-	server      *httpDelivery.Server
+	config            *config.Config
+	Logger            *slog.Logger
+	db                *pgxpool.Pool
+	userRepo          domain.UserRepository
+	competencyRepo    domain.CompetencyRepository
+	userUseCase       domain.UserUseCase
+	competencyUseCase domain.CompetencyUseCase
+	server            *httpDelivery.Server
 }
 
 // NewApp initializes and returns a new App instance with all dependencies
@@ -35,6 +37,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db, logger)
+	competencyRepo := repository.NewCompetencyRepository(db, logger)
 
 	// Initialize security dependencies
 	passwordHasher, tokenGenerator, err := initSecurity(cfg.JWT, logger)
@@ -45,26 +48,28 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	logger.Info("Security dependencies initialized")
 
 	// Initialize use cases
-	userUseCase, err := initUseCases(userRepo, passwordHasher, tokenGenerator, logger)
+	userUseCase, competencyUseCase, err := initUseCases(userRepo, competencyRepo, passwordHasher, tokenGenerator, logger)
 	if err != nil {
 		db.Close()
 		return nil, err
 	}
 
 	// Initialize HTTP server
-	server, err := initServer(cfg.Server, userUseCase, logger)
+	server, err := initServer(cfg.Server, userUseCase, competencyUseCase, logger)
 	if err != nil {
 		db.Close()
 		return nil, err
 	}
 
 	return &App{
-		config:      cfg,
-		Logger:      logger,
-		db:          db,
-		userRepo:    userRepo,
-		userUseCase: userUseCase,
-		server:      server,
+		config:            cfg,
+		Logger:            logger,
+		db:                db,
+		userRepo:          userRepo,
+		competencyRepo:    competencyRepo,
+		userUseCase:       userUseCase,
+		competencyUseCase: competencyUseCase,
+		server:            server,
 	}, nil
 }
 

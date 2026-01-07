@@ -68,24 +68,33 @@ func initSecurity(cfg config.JWTConfig, logger *slog.Logger) (domain.PasswordHas
 // initUseCases initializes application use cases
 func initUseCases(
 	userRepo domain.UserRepository,
+	competencyRepo domain.CompetencyRepository,
 	passwordHasher domain.PasswordHasher,
 	tokenGenerator domain.TokenGenerator,
 	logger *slog.Logger,
-) (domain.UserUseCase, error) {
+) (domain.UserUseCase, domain.CompetencyUseCase, error) {
 	userUseCase, err := usecase.NewUserUseCase(userRepo, passwordHasher, tokenGenerator, logger)
 	if err != nil {
 		logger.Error("Failed to wire dependency: user use case", "Error", err)
-		return nil, fmt.Errorf("%w: %w", ErrInitUserUseCase, err)
+		return nil, nil, fmt.Errorf("%w: %w", ErrInitUserUseCase, err)
 	}
 	logger.Info("User use case initialized")
-	return userUseCase, nil
+
+	competencyUseCase, err := usecase.NewCompetencyUseCase(competencyRepo, logger)
+	if err != nil {
+		logger.Error("Failed to wire dependency: competency use case", "Error", err)
+		return nil, nil, fmt.Errorf("%w: %w", ErrInitCompetencyUseCase, err)
+	}
+	logger.Info("Competency use case initialized")
+
+	return userUseCase, competencyUseCase, nil
 }
 
 // initServer initializes the HTTP server
-func initServer(cfg config.ServerConfig, userUseCase domain.UserUseCase, logger *slog.Logger) (*httpDelivery.Server, error) {
+func initServer(cfg config.ServerConfig, userUseCase domain.UserUseCase, competencyUseCase domain.CompetencyUseCase, logger *slog.Logger) (*httpDelivery.Server, error) {
 	// Setup HTTP router with timeout from config
 	handlerTimeout := time.Duration(cfg.HandlerTimeout) * time.Second
-	router, err := httpDelivery.NewRouter(userUseCase, logger, handlerTimeout)
+	router, err := httpDelivery.NewRouter(userUseCase, competencyUseCase, logger, handlerTimeout)
 	if err != nil {
 		return nil, err
 	}
