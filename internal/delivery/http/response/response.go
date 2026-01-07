@@ -80,6 +80,21 @@ func (rw *Writer) Error(w http.ResponseWriter, err error) {
 		errorCode = "invalid_token"
 		message = "Invalid or expired token"
 
+	case errors.Is(err, domain.ErrCompetencyNotFound):
+		statusCode = http.StatusNotFound
+		errorCode = "competency_not_found"
+		message = "Competency not found"
+
+	case errors.Is(err, domain.ErrCompetencyAlreadyExists):
+		statusCode = http.StatusConflict
+		errorCode = "competency_already_exists"
+		message = "A competency with this name already exists"
+
+	case errors.Is(err, domain.ErrInvalidCompetencyName):
+		statusCode = http.StatusBadRequest
+		errorCode = "invalid_competency_name"
+		message = "Invalid competency name (must be 2-100 characters)"
+
 	default:
 		// Check if it's a validation error
 		var validationErr dto.ValidationError
