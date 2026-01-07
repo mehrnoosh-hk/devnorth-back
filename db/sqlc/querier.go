@@ -9,8 +9,13 @@ import (
 )
 
 type Querier interface {
+	CreateCompetency(ctx context.Context, arg CreateCompetencyParams) (Competency, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	GetAllCompetencies(ctx context.Context) ([]Competency, error)
+	GetCompetencyByID(ctx context.Context, id int32) (Competency, error)
+	GetCompetencyByName(ctx context.Context, name string) (Competency, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
+	UpdateCompetencyDescription(ctx context.Context, arg UpdateCompetencyDescriptionParams) (Competency, error)
 }
 
 var _ Querier = (*Queries)(nil)
