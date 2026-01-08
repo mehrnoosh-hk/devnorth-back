@@ -12,7 +12,7 @@ import (
 )
 
 // NewRouter creates and configures the HTTP router
-func NewRouter(userUseCase domain.UserUseCase, logger *slog.Logger, handlerTimeout time.Duration) (*chi.Mux, error) {
+func NewRouter(userUseCase domain.UserUseCase, competencyUseCase domain.CompetencyUseCase, logger *slog.Logger, handlerTimeout time.Duration) (*chi.Mux, error) {
 	r := chi.NewRouter()
 
 	// Global middleware
@@ -31,6 +31,10 @@ func NewRouter(userUseCase domain.UserUseCase, logger *slog.Logger, handlerTimeo
 	if err != nil {
 		return nil, err
 	}
+	competencyHandler, err := handler.NewCompetencyHandler(competencyUseCase, logger, responseWriter)
+	if err != nil {
+		return nil, err
+	}
 	healthHandler, err := handler.NewHealthHandler(responseWriter)
 	if err != nil {
 		return nil, err
@@ -45,6 +49,14 @@ func NewRouter(userUseCase domain.UserUseCase, logger *slog.Logger, handlerTimeo
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandler.Register)
 			r.Post("/login", authHandler.Login)
+		})
+
+		// Competency routes
+		r.Route("/competencies", func(r chi.Router) {
+			r.Post("/", competencyHandler.Create)
+			r.Get("/", competencyHandler.GetAll)
+			r.Get("/{id}", competencyHandler.GetByID)
+			r.Patch("/{id}/description", competencyHandler.UpdateDescription)
 		})
 	})
 
