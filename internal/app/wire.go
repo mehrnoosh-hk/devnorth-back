@@ -91,10 +91,10 @@ func initUseCases(
 }
 
 // initServer initializes the HTTP server
-func initServer(cfg config.ServerConfig, userUseCase domain.UserUseCase, competencyUseCase domain.CompetencyUseCase, logger *slog.Logger) (*httpDelivery.Server, error) {
+func initServer(cfg config.ServerConfig, rateLimitCfg config.RateLimitConfig, userUseCase domain.UserUseCase, competencyUseCase domain.CompetencyUseCase, logger *slog.Logger) (*httpDelivery.Server, error) {
 	// Setup HTTP router with timeout from config
 	handlerTimeout := time.Duration(cfg.HandlerTimeout) * time.Second
-	router, err := httpDelivery.NewRouter(userUseCase, competencyUseCase, logger, handlerTimeout)
+	router, err := httpDelivery.NewRouter(userUseCase, competencyUseCase, logger, handlerTimeout, rateLimitCfg)
 	if err != nil {
 		return nil, err
 	}

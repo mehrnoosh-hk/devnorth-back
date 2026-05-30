@@ -51,6 +51,13 @@ type JWTConfig struct {
 	TokenDuration int               // Token expiration duration in minutes
 }
 
+// RateLimitConfig holds rate limiting configuration
+type RateLimitConfig struct {
+	RPS           float64 // Requests per second per client IP
+	Burst         int     // Maximum burst size (tokens available at once)
+	CleanupPeriod int     // Cleanup interval for stale entries in seconds
+}
+
 // AppConfig holds application-level configuration
 type AppConfig struct {
 	Env             string // Application environment (development, staging, production)
@@ -59,10 +66,11 @@ type AppConfig struct {
 
 // Config holds all application configuration
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	JWT      JWTConfig
-	App      AppConfig
+	Server    ServerConfig
+	Database  DatabaseConfig
+	JWT       JWTConfig
+	App       AppConfig
+	RateLimit RateLimitConfig
 }
 
 // Load reads configuration from environment variables
@@ -109,6 +117,11 @@ func Load() (*Config, error) {
 			Env:             getEnv("APP_ENV", "development"),
 			ShutdownTimeout: getEnvAsInt("APP_SHUTDOWN_TIMEOUT", 30),
 		},
+		RateLimit: RateLimitConfig{
+			RPS:           getEnvAsFloat("RATE_LIMIT_RPS", 10),
+			Burst:         getEnvAsInt("RATE_LIMIT_BURST", 20),
+			CleanupPeriod: getEnvAsInt("RATE_LIMIT_CLEANUP_PERIOD", 300),
+		},
 	}
 
 	// Build DB_URL if not provided
@@ -133,6 +146,20 @@ func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
+	return defaultValue
+}
+
+// getEnvAsFloat reads an environment variable as float64 or returns a default value
+func getEnvAsFloat(key string, defaultValue float64) float64 {
+	if value := os.Getenv(key); value != "" {
+		floatValue, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			log.Printf("Warning: Invalid float value for %s: %v\n", key, err)
+			return defaultValue
+		}
+		return floatValue
+	}
+	log.Printf("Warning: The value for %s is empty, using default %.2f", key, defaultValue)
 	return defaultValue
 }
 

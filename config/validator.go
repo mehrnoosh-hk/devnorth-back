@@ -27,6 +27,10 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("%w: database config: %w", ErrConfigValidationFailed, err)
 	}
 
+	if err := c.validateRateLimit(); err != nil {
+		return fmt.Errorf("%w: rate limit config: %w", ErrConfigValidationFailed, err)
+	}
+
 	return nil
 }
 
@@ -128,6 +132,23 @@ func (c *Config) validateDatabaseSettings() error {
 
 	if c.Database.QueryTimeout <= 0 {
 		return errors.New("query timeout must be greater than 0")
+	}
+
+	return nil
+}
+
+// validateRateLimit validates rate limiting configuration
+func (c *Config) validateRateLimit() error {
+	if c.RateLimit.RPS <= 0 {
+		return errors.New("rate limit RPS must be greater than 0")
+	}
+
+	if c.RateLimit.Burst <= 0 {
+		return errors.New("rate limit burst must be greater than 0")
+	}
+
+	if c.RateLimit.CleanupPeriod <= 0 {
+		return errors.New("rate limit cleanup period must be greater than 0")
 	}
 
 	return nil

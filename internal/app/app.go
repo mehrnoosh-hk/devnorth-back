@@ -37,7 +37,11 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db, logger)
-	competencyRepo := repository.NewCompetencyRepository(db, logger)
+	competencyRepo, err := repository.NewCompetencyRepository(db, logger)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
 
 	// Initialize security dependencies
 	passwordHasher, tokenGenerator, err := initSecurity(cfg.JWT, logger)
@@ -55,7 +59,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	// Initialize HTTP server
-	server, err := initServer(cfg.Server, userUseCase, competencyUseCase, logger)
+	server, err := initServer(cfg.Server, cfg.RateLimit, userUseCase, competencyUseCase, logger)
 	if err != nil {
 		db.Close()
 		return nil, err
